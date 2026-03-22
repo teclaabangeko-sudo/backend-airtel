@@ -88,3 +88,31 @@ app.post("/pay", (req, res) => {
 app.listen(3001, () => {
   console.log("Server running on port 3001");
 });
+
+app.post("/apply-promo", (req, res) => {
+  const { code, amount } = req.body
+
+  const promo = promos.find(p => p.code === code)
+
+  if (!promo) {
+    return res.json({ valid: false })
+  }
+
+  const now = new Date()
+  const expiry = new Date(promo.expiresAt)
+
+  if (expiry < now) {
+    return res.json({ valid: false })
+  }
+
+  if (promo.used >= promo.usageLimit) {
+    return res.json({ valid: false })
+  }
+
+  const discountAmount = amount * promo.discount
+
+  res.json({
+    valid: true,
+    discountAmount,
+  })
+})
