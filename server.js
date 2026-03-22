@@ -1,10 +1,21 @@
+import { createClient } from '@supabase/supabase-js'
+
+
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 
+
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
+
+// 👉 AJOUT ICI
+const supabase = createClient(
+  "https://rljmkpbdvxvgpwbbmpsm.supabase.co",   // 🔴 Project URL
+  "rljmkpbdvxvgpwbbmpsm" // 🔴  anon key
+)
+
 
 // ====== FAKE DATABASE ======
 let promos = [];
@@ -18,72 +29,93 @@ function generateCode() {
 }
 
 // ====== CREATE PROMO ======
-app.post("/admin/create-promo", (req, res) => {
-  if (req.headers.authorization !== ADMIN_KEY) {
-    return res.status(403).json({ error: "Unauthorized" });
-  }
+app.post("/admin/create-promo", async (req, res) => {
+  const { discount, expiresAt, usageLimit } = req.body
 
-  const { discount, expiresAt, usageLimit } = req.body;
+  const code = "PROMO-" + Math.random().toString(36).substring(2, 8).toUpperCase()
 
-  const newPromo = {
-    code: generateCode(),
-    discount,
-    expiresAt,
-    usageLimit,
-    used: 0,
-  };
+  const { data, error } = await supabase
+    .from("promos")
+    .insert([{
+      code,
+      discount,
+      expires_at: expiresAt,
+      usage_limit: usageLimit
+    }])
 
-  promos.push(newPromo);
+  if (error) return res.json({ error })
 
-  res.json(newPromo);
-});
+  res.json({ code, discount, expiresAt, usageLimit })
+})
 
 // ====== GET PROMOS ======
-app.get("/admin/promos", (req, res) => {
-  res.json(promos);
-});
+app.get("/admin/promos", async (req, res) => {
+  const { data } = await supabase.from("promos").select("*")
+  res.json(data)
+})
 
 // ====== VALIDATE PROMO ======
-function validatePromo(code) {
-  const promo = promos.find((p) => p.code === code);
-  if (!promo) return { valid: false };
+app.post("/apply-promo", async (req, res) => {
+  const { code, amount } = req.body
 
-  if (new Date() > new Date(promo.expiresAt)) {
-    return { valid: false, message: "Expired" };
+  const { data } = await supabase
+    .from("promos")
+    .select("*")
+    .eq("code", code)
+    .single()
+
+  if (!data) return res.json({ valid: false })
+
+  if (new Date(data.expires_at) < new Date()) {
+    return res.json({ valid: false })
   }
 
-  if (promo.used >= promo.usageLimit) {
-    return { valid: false, message: "Limit reached" };
+  if (data.used >= data.usage_limit) {
+    return res.json({ valid: false })
   }
 
-  return { valid: true, promo };
-}
+  const discountAmount = amount * data.discount
+
+  res.json({ valid: true, discountAmount })
+})
 
 // ====== PAYMENT ======
-app.post("/pay", (req, res) => {
-  const { amount, phone, promoCode } = req.body;
+app.post("/pay", async (req, res) => {
+  const { name, phone, amount, promoCode } = req.body
 
-  let finalAmount = amount;
+  let finalAmount = amount
 
   if (promoCode) {
-    const result = validatePromo(promoCode);
+    const { data } = await supabase
+      .from("promos")
+      .select("*")
+      .eq("code", promoCode)
+      .single()
 
-    if (!result.valid) {
-      return res.status(400).json({ error: result.message || "Invalid promo" });
+    if (data && data.used < data.usage_limit) {
+      finalAmount = amount - amount * data.discount
+
+      await supabase
+        .from("promos")
+        .update({ used: data.used + 1 })
+        .eq("code", promoCode)
     }
-
-    finalAmount = amount - amount * result.promo.discount;
-    result.promo.used++;
   }
 
+  await supabase.from("payments").insert([{
+    name,
+    phone,
+    amount: finalAmount,
+    promo_code: promoCode
+  }])
   // 👉 ICI TU METTRAS L’API AIRTEL PLUS TARD
 
-  res.json({
-    success: true,
+  res.json({ success: true,
     amount: finalAmount,
-    message: "Paiement simulé OK",
-  });
+    message: "Paiements effectué avec succès! La Maison de la Presse vous remercie pour votre fidélité",
+   })
 });
+
 
 app.listen(3001, () => {
   console.log("Server running on port 3001");
@@ -116,3 +148,5 @@ app.post("/apply-promo", (req, res) => {
     discountAmount,
   })
 })
+
+
