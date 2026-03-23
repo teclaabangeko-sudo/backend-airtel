@@ -9,7 +9,7 @@ const axios = require("axios")
 
 const AIRTEL = {
   BASE_URL: "https://api.mypvit.pro",
-  URL_CODE: "Q3IGKGDBZPZQQKN4", // pour /rest
+  URL_CODE: "VP27NNQRATPM8TPK", // pour /rest
   SECRET_URL_CODE: "VP27NNQRATPM8TPK", // 🔥 pour renew-secret
   ACCOUNT_CODE: "ACC_69C10F341B7DF",
   CALLBACK_CODE: "PMBKZ",
@@ -167,7 +167,7 @@ app.post("/pay", async (req, res) => {
     const reference = "REF" + Date.now()
 
     const airtelRes = await axios.post(
-      `${AIRTEL.BASE_URL}/v2/${AIRTEL.URL_CODE}/rest`,
+      `${AIRTEL.BASE_URL}/v1/${AIRTEL.URL_CODE}/rest`,
       {
         agent: "AGENT-1",
         amount: finalAmount,
@@ -178,7 +178,7 @@ app.post("/pay", async (req, res) => {
         owner_charge: "CUSTOMER",
         owner_charge_operator: "CUSTOMER",
         free_info: name,
-        product: "MaisonPresse",
+        product: "IPC",
         operator_code: "AIRTEL_MONEY",
         reference: reference,
         service: "RESTFUL",
@@ -227,7 +227,7 @@ app.listen(3001, () => {
 async function getSecret() {
   try {
     const res = await axios.post(
-    `${AIRTEL.BASE_URL}/v1/${AIRTEL.SECRET_URL_CODE}/renew-secret`,
+    `${AIRTEL.BASE_URL}/v2/${AIRTEL.SECRET_URL_CODE}/renew-secret`,
       new URLSearchParams({
         operationAccountCode: AIRTEL.ACCOUNT_CODE,
         password: AIRTEL.PASSWORD,
