@@ -38,7 +38,7 @@ async function getSecret() {
 
   try {
     const res = await axios.post(
-      `${AIRTEL.BASE_URL}/v1/${AIRTEL.SECRET_URL_CODE}/renew-secret`,
+      `${AIRTEL.BASE_URL}/v2/${AIRTEL.SECRET_URL_CODE}/renew-secret`,
       new URLSearchParams({
         operationAccountCode: AIRTEL.ACCOUNT_CODE,
         password: AIRTEL.PASSWORD,
@@ -62,7 +62,7 @@ async function getSecret() {
     
   }
 }
-console.log("URL utilisée:", `${AIRTEL.BASE_URL}/v1/${AIRTEL.SECRET_URL_CODE}/renew-secret`)
+console.log("URL utilisée:", `${AIRTEL.BASE_URL}/v2/${AIRTEL.SECRET_URL_CODE}/renew-secret`)
 // ================= ADMIN =================
 app.post("/admin/login", (req, res) => {
   const { email, password } = req.body
