@@ -14,7 +14,7 @@ const SECRET = "rljmkpbdvxvgpwbbmpsm" // 🔴
 
 const supabase = createClient(
   "https://rljmkpbdvxvgpwbbmpsm.supabase.co",   // 🔴 Project URL
-  "rljmkpbdvxvgpwbbmpsm" // 🔴  anon key
+  "sb_publishable_bbc41qBxat_u5FItWfiRQg_1lOPHAF6" // 🔴  anon key
 )
 
 
