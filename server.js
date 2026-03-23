@@ -157,7 +157,9 @@ app.post("/pay", async (req, res) => {
   }
 
   // normalisation numéro
-  phone = phone.replace(/^0/, "+241")
+  if (phone.startsWith("0")) {
+    phone = "241" + phone.substring(1)
+  }
 
   let finalAmount = amount
 
