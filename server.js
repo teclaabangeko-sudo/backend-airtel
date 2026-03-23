@@ -6,9 +6,11 @@ const bodyParser = require("body-parser");
 
 const axios = require("axios")
 
+
 const AIRTEL = {
   BASE_URL: "https://api.mypvit.pro",
-  URL_CODE: "Q3IGKGDBZPZQQKN4",
+  URL_CODE: "Q3IGKGDBZPZQQKN4", // pour /rest
+  SECRET_URL_CODE: "VP27NNQRATPM8TPK", // 🔥 pour renew-secret
   ACCOUNT_CODE: "ACC_69C10F341B7DF",
   CALLBACK_CODE: "PMBKZ",
   PASSWORD: "Libreville2026@",
@@ -225,7 +227,7 @@ app.listen(3001, () => {
 async function getSecret() {
   try {
     const res = await axios.post(
-    `${AIRTEL.BASE_URL}/v1/${AIRTEL.URL_CODE}/renew-secret`,
+    `${AIRTEL.BASE_URL}/v1/${AIRTEL.SECRET_URL_CODE}/renew-secret`,
       new URLSearchParams({
         operationAccountCode: AIRTEL.ACCOUNT_CODE,
         password: AIRTEL.PASSWORD,
