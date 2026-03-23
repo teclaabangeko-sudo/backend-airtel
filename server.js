@@ -156,10 +156,6 @@ app.post("/pay", async (req, res) => {
     return res.status(400).json({ error: "Montant invalide" })
   }
 
-  // normalisation numéro
-  if (phone.startsWith("0")) {
-    phone = "241" + phone.substring(1)
-  }
 
   let finalAmount = amount
 
