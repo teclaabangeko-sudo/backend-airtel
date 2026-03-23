@@ -62,24 +62,32 @@ function verifyToken(req, res, next) {
 }
 
 // ====== CREATE PROMO ======
-app.post("/admin/create-promo",  verifyToken, async (req, res) => {
-  const { discount, expiresAt, usageLimit } = req.body
+app.post("/admin/create-promo", verifyToken, async (req, res) => {
+  try {
+    const { discount, expiresAt, usageLimit } = req.body
 
-  const code = "PROMO-" + Math.random().toString(36).substring(2, 8).toUpperCase()
+    const code = "PROMO-" + Math.random().toString(36).substring(2, 8).toUpperCase()
 
-  const { data, error } = await supabase
-    .from("promos")
-    .insert([{
+    const { data, error } = await supabase
+      .from("promos")
+      .insert([{
         code,
-        discount,
-        expires_at: expiresAt,
-        usage_limit: usageLimit,
+        discount: discount || 0,
+        expires_at: expiresAt || null,
+        usage_limit: usageLimit || 0,
         used: 0
       }])
 
-  if (error) return res.json({ error })
+    if (error) {
+      console.error("SUPABASE ERROR:", error)
+      return res.status(500).json({ error: error.message })
+    }
 
-  res.json({ code, discount, expiresAt, usageLimit })
+    res.json({ code })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: "Server error" })
+  }
 })
 
 // ====== GET PROMOS ======
