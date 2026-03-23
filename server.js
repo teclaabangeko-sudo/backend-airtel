@@ -70,11 +70,12 @@ app.post("/admin/create-promo",  verifyToken, async (req, res) => {
   const { data, error } = await supabase
     .from("promos")
     .insert([{
-      code,
-      discount,
-      expires_at: expiresAt,
-      usage_limit: usageLimit
-    }])
+        code,
+        discount,
+        expires_at: expiresAt,
+        usage_limit: usageLimit,
+        used: 0
+      }])
 
   if (error) return res.json({ error })
 
