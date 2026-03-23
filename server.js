@@ -167,7 +167,7 @@ app.post("/pay", async (req, res) => {
     const reference = "REF" + Date.now()
 
     const airtelRes = await axios.post(
-      `${AIRTEL.BASE_URL}/v1/${AIRTEL.URL_CODE}/rest`,
+      `${AIRTEL.BASE_URL}/v2/${AIRTEL.URL_CODE}/rest`,
       {
         agent: "AGENT-1",
         amount: finalAmount,
