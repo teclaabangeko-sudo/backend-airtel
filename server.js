@@ -162,7 +162,7 @@ app.post("/pay", async (req, res) => {
       await getSecret()
     }
 
-    const reference = "REF_" + Date.now()
+    const reference = "REF" + Date.now()
 
     const airtelRes = await axios.post(
       `${AIRTEL.BASE_URL}/v2/${AIRTEL.URL_CODE}/rest`,
@@ -176,7 +176,7 @@ app.post("/pay", async (req, res) => {
         owner_charge: "CUSTOMER",
         owner_charge_operator: "CUSTOMER",
         free_info: name,
-        product: "Maison de la Presse",
+        product: "MaisonPresse",
         operator_code: "AIRTEL_MONEY",
         reference: reference,
         service: "RESTFUL",
@@ -225,7 +225,7 @@ app.listen(3001, () => {
 async function getSecret() {
   try {
     const res = await axios.post(
-      `${AIRTEL.BASE_URL}/v2/${AIRTEL.URL_CODE}/renew-secret`,
+    `${AIRTEL.BASE_URL}/v1/${AIRTEL.URL_CODE}/renew-secret`,
       new URLSearchParams({
         operationAccountCode: AIRTEL.ACCOUNT_CODE,
         password: AIRTEL.PASSWORD,
