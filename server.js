@@ -59,9 +59,10 @@ async function getSecret() {
   } catch (err) {
     console.error("❌ SECRET ERROR:", err.response?.data || err.message)
     throw err
+    
   }
 }
-
+console.log("URL utilisée:", `${AIRTEL.BASE_URL}/v1/${AIRTEL.SECRET_URL_CODE}/renew-secret`)
 // ================= ADMIN =================
 app.post("/admin/login", (req, res) => {
   const { email, password } = req.body
