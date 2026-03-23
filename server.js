@@ -9,7 +9,7 @@ const axios = require("axios")
 
 const AIRTEL = {
   BASE_URL: "https://api.mypvit.pro",
-  URL_CODE: "VP27NNQRATPM8TPK", // pour /rest
+  URL_CODE: "Q3IGKGDBZPZQQKN4", // pour /rest
   SECRET_URL_CODE: "VP27NNQRATPM8TPK", // 🔥 pour renew-secret
   ACCOUNT_CODE: "ACC_69C10F341B7DF",
   CALLBACK_CODE: "PMBKZ",
