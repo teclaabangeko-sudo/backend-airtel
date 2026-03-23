@@ -1,67 +1,85 @@
 const { createClient } = require('@supabase/supabase-js')
 const jwt = require("jsonwebtoken")
 const express = require("express")
-const cors = require("cors");
-const bodyParser = require("body-parser");
-
+const cors = require("cors")
+const bodyParser = require("body-parser")
 const axios = require("axios")
 
-
+// ================= ENV =================
 const AIRTEL = {
-  BASE_URL: "https://api.mypvit.pro",
-  URL_CODE: "Q3IGKGDBZPZQQKN4", // pour /rest
-  SECRET_URL_CODE: "VP27NNQRATPM8TPK", // 🔥 pour renew-secret
-  ACCOUNT_CODE: "ACC_69C10F341B7DF",
-  CALLBACK_CODE: "PMBKZ",
-  PASSWORD: "Libreville2026@",
+  BASE_URL: process.env.AIRTEL_BASE_URL,
+  URL_CODE: process.env.AIRTEL_URL_CODE,
+  SECRET_URL_CODE: process.env.AIRTEL_SECRET_URL_CODE,
+  ACCOUNT_CODE: process.env.AIRTEL_ACCOUNT_CODE,
+  CALLBACK_CODE: process.env.AIRTEL_CALLBACK_CODE,
+  PASSWORD: process.env.AIRTEL_PASSWORD,
 }
 
-let SECRET_KEY = null
-
-const app = express();
-app.use(cors());
-app.use(bodyParser.json());
-
-
-const SECRET = "rljmkpbdvxvgpwbbmpsm" // 🔴
+const SECRET = process.env.JWT_SECRET
 
 const supabase = createClient(
-  "https://rljmkpbdvxvgpwbbmpsm.supabase.co",   // 🔴 Project URL
-  "sb_publishable_bbc41qBxat_u5FItWfiRQg_1lOPHAF6" // 🔴  anon key
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
 )
 
+// ================= APP =================
+const app = express()
+app.use(cors())
+app.use(bodyParser.json())
 
-// ====== FAKE DATABASE ======
-let promos = [];
+// ================= SECRET CACHE =================
+let SECRET_KEY = null
+let SECRET_EXPIRES_AT = 0
 
-// ====== SECURITY ======
-const ADMIN_KEY = "Mdp2026@"; // change ça plus tard
+async function getSecret() {
+  if (SECRET_KEY && Date.now() < SECRET_EXPIRES_AT) {
+    return SECRET_KEY
+  }
 
-// ====== GENERATE CODE ======
-function generateCode() {
-  return "PROMO-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+  try {
+    const res = await axios.post(
+      `${AIRTEL.BASE_URL}/v2/${AIRTEL.SECRET_URL_CODE}/renew-secret`,
+      new URLSearchParams({
+        operationAccountCode: AIRTEL.ACCOUNT_CODE,
+        password: AIRTEL.PASSWORD,
+      }),
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      }
+    )
+
+    SECRET_KEY = res.data.secret
+    SECRET_EXPIRES_AT = Date.now() + (res.data.expires_in - 60) * 1000
+
+    console.log("✅ NEW SECRET OK")
+    return SECRET_KEY
+
+  } catch (err) {
+    console.error("❌ SECRET ERROR:", err.response?.data || err.message)
+    throw err
+  }
 }
 
+// ================= ADMIN =================
 app.post("/admin/login", (req, res) => {
   const { email, password } = req.body
 
-  // 🔴 change ces identifiants
-  if (email === "mdp369@yahoo.fr" && password === "Mdp2026@") {
+  if (
+    email === process.env.ADMIN_EMAIL &&
+    password === process.env.ADMIN_PASSWORD
+  ) {
     const token = jwt.sign({ role: "admin" }, SECRET, { expiresIn: "2h" })
-
     return res.json({ token })
   }
 
   res.status(401).json({ error: "Invalid credentials" })
 })
 
-
 function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization
-
-  if (!authHeader) {
-    return res.status(401).json({ error: "No token" })
-  }
+  if (!authHeader) return res.status(401).json({ error: "No token" })
 
   const token = authHeader.split(" ")[1]
 
@@ -69,19 +87,19 @@ function verifyToken(req, res, next) {
     const decoded = jwt.verify(token, SECRET)
     req.user = decoded
     next()
-  } catch (err) {
+  } catch {
     return res.status(403).json({ error: "Invalid token" })
   }
 }
 
-// ====== CREATE PROMO ======
+// ================= PROMO =================
 app.post("/admin/create-promo", verifyToken, async (req, res) => {
   try {
     const { discount, expiresAt, usageLimit } = req.body
 
     const code = "PROMO-" + Math.random().toString(36).substring(2, 8).toUpperCase()
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("promos")
       .insert([{
         code,
@@ -91,25 +109,20 @@ app.post("/admin/create-promo", verifyToken, async (req, res) => {
         used: 0
       }])
 
-    if (error) {
-      console.error("SUPABASE ERROR:", error)
-      return res.status(500).json({ error: error.message })
-    }
+    if (error) return res.status(500).json({ error: error.message })
 
     res.json({ code })
+
   } catch (err) {
-    console.error(err)
     res.status(500).json({ error: "Server error" })
   }
 })
 
-// ====== GET PROMOS ======
-app.get("/admin/promos",  verifyToken, async (req, res) => {
+app.get("/admin/promos", verifyToken, async (req, res) => {
   const { data } = await supabase.from("promos").select("*")
   res.json(data)
 })
 
-// ====== VALIDATE PROMO ======
 app.post("/apply-promo", async (req, res) => {
   const { code, amount } = req.body
 
@@ -121,7 +134,7 @@ app.post("/apply-promo", async (req, res) => {
 
   if (!data) return res.json({ valid: false })
 
-  if (new Date(data.expires_at) < new Date()) {
+  if (data.expires_at && new Date(data.expires_at) < new Date()) {
     return res.json({ valid: false })
   }
 
@@ -134,13 +147,20 @@ app.post("/apply-promo", async (req, res) => {
   res.json({ valid: true, discountAmount })
 })
 
-// ====== PAYMENT ======
+// ================= PAYMENT =================
 app.post("/pay", async (req, res) => {
-  const { name, phone, amount, promoCode } = req.body
+  let { name, phone, amount, promoCode } = req.body
+
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ error: "Montant invalide" })
+  }
+
+  // normalisation numéro
+  phone = phone.replace(/^0/, "+241")
 
   let finalAmount = amount
 
-  // 🔽 gestion promo (inchangé)
+  // promo
   if (promoCode) {
     const { data } = await supabase
       .from("promos")
@@ -159,14 +179,11 @@ app.post("/pay", async (req, res) => {
   }
 
   try {
-    // 🔐 récupérer secret si vide
-    if (!SECRET_KEY) {
-      await getSecret()
-    }
+    const secret = await getSecret()
 
     const reference = "REF" + Date.now()
 
-    const airtelRes = await axios.post(
+    await axios.post(
       `${AIRTEL.BASE_URL}/v2/${AIRTEL.URL_CODE}/rest`,
       {
         agent: "AGENT-1",
@@ -178,20 +195,19 @@ app.post("/pay", async (req, res) => {
         owner_charge: "CUSTOMER",
         owner_charge_operator: "CUSTOMER",
         free_info: name,
-        product: "IPC",
+        product: "IPC", // <= 15 chars
         operator_code: "AIRTEL_MONEY",
         reference: reference,
         service: "RESTFUL",
       },
       {
         headers: {
-          "X-Secret": SECRET_KEY,
+          "X-Secret": secret,
           "Content-Type": "application/json",
         },
       }
     )
 
-    // 💾 sauvegarde en base
     await supabase.from("payments").insert([{
       name,
       phone,
@@ -203,8 +219,8 @@ app.post("/pay", async (req, res) => {
 
     res.json({
       success: true,
+      reference,
       status: "PENDING",
-      message: "Paiement initié. Confirmez sur votre téléphone.",
     })
 
   } catch (err) {
@@ -217,56 +233,63 @@ app.post("/pay", async (req, res) => {
   }
 })
 
-
-
-app.listen(3001, () => {
-  console.log("Server running on port 3001");
-});
-
-
-async function getSecret() {
-  try {
-    const res = await axios.post(
-    `${AIRTEL.BASE_URL}/v2/${AIRTEL.SECRET_URL_CODE}/renew-secret`,
-      new URLSearchParams({
-        operationAccountCode: AIRTEL.ACCOUNT_CODE,
-        password: AIRTEL.PASSWORD,
-      }),
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      }
-    )
-
-    SECRET_KEY = res.data.secret
-    console.log("✅ NEW SECRET:", SECRET_KEY)
-
-  } catch (err) {
-    console.error("❌ SECRET ERROR:", err.response?.data || err.message)
-  }
-}
-
-
+// ================= CALLBACK =================
 app.post("/callback/airtel", async (req, res) => {
   const data = req.body
 
   console.log("📩 CALLBACK:", data)
 
-  const { merchantReferenceId, status } = data
+  const { merchantReferenceId, status, amount } = data
 
-  // 🔄 mise à jour paiement
+  if (!merchantReferenceId) {
+    return res.status(400).json({ error: "Invalid callback" })
+  }
+
+  const { data: payment } = await supabase
+    .from("payments")
+    .select("*")
+    .eq("reference", merchantReferenceId)
+    .single()
+
+  if (!payment) {
+    return res.status(404).json({ error: "Payment not found" })
+  }
+
+  if (payment.status === "SUCCESS") {
+    return res.status(200).json({ message: "Already processed" })
+  }
+
+  if (payment.amount !== amount) {
+    console.error("⚠️ Montant différent détecté !")
+  }
+
   await supabase
     .from("payments")
     .update({ status })
     .eq("reference", merchantReferenceId)
 
-  // ✅ réponse obligatoire
   res.status(200).json({
     transactionId: data.transactionId,
     responseCode: data.code,
   })
 })
 
+// ================= CHECK =================
+app.get("/check/:reference", async (req, res) => {
+  const { reference } = req.params
 
+  const { data } = await supabase
+    .from("payments")
+    .select("*")
+    .eq("reference", reference)
+    .single()
 
+  res.json(data)
+})
+
+// ================= START =================
+const PORT = process.env.PORT || 3001
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`)
+})
