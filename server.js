@@ -4,6 +4,17 @@ const express = require("express")
 const cors = require("cors");
 const bodyParser = require("body-parser");
 
+const axios = require("axios")
+
+const AIRTEL = {
+  BASE_URL: "https://api.mypvit.pro",
+  URL_CODE: "Q3IGKGDBZPZQQKN4",
+  ACCOUNT_CODE: "ACC_69C10F341B7DF",
+  CALLBACK_CODE: "PMBKZ",
+  PASSWORD: "Libreville2026@",
+}
+
+let SECRET_KEY = null
 
 const app = express();
 app.use(cors());
@@ -127,6 +138,7 @@ app.post("/pay", async (req, res) => {
 
   let finalAmount = amount
 
+  // 🔽 gestion promo (inchangé)
   if (promoCode) {
     const { data } = await supabase
       .from("promos")
@@ -144,19 +156,65 @@ app.post("/pay", async (req, res) => {
     }
   }
 
-  await supabase.from("payments").insert([{
-    name,
-    phone,
-    amount: finalAmount,
-    promo_code: promoCode
-  }])
-  // 👉 ICI TU METTRAS L’API AIRTEL PLUS TARD
+  try {
+    // 🔐 récupérer secret si vide
+    if (!SECRET_KEY) {
+      await getSecret()
+    }
 
-  res.json({ success: true,
-    amount: finalAmount,
-    message: "Paiements effectué avec succès! La Maison de la Presse vous remercie pour votre fidélité",
-   })
-});
+    const reference = "REF_" + Date.now()
+
+    const airtelRes = await axios.post(
+      `${AIRTEL.BASE_URL}/v2/${AIRTEL.URL_CODE}/rest`,
+      {
+        agent: "AGENT-1",
+        amount: finalAmount,
+        callback_url_code: AIRTEL.CALLBACK_CODE,
+        customer_account_number: phone,
+        merchant_operation_account_code: AIRTEL.ACCOUNT_CODE,
+        transaction_type: "PAYMENT",
+        owner_charge: "CUSTOMER",
+        owner_charge_operator: "CUSTOMER",
+        free_info: name,
+        product: "Maison de la Presse",
+        operator_code: "AIRTEL_MONEY",
+        reference: reference,
+        service: "RESTFUL",
+      },
+      {
+        headers: {
+          "X-Secret": SECRET_KEY,
+          "Content-Type": "application/json",
+        },
+      }
+    )
+
+    // 💾 sauvegarde en base
+    await supabase.from("payments").insert([{
+      name,
+      phone,
+      amount: finalAmount,
+      reference,
+      status: "PENDING",
+      promo_code: promoCode
+    }])
+
+    res.json({
+      success: true,
+      status: "PENDING",
+      message: "Paiement initié. Confirmez sur votre téléphone.",
+    })
+
+  } catch (err) {
+    console.error("❌ AIRTEL ERROR:", err.response?.data || err.message)
+
+    res.status(500).json({
+      success: false,
+      error: "Erreur paiement Airtel",
+    })
+  }
+})
+
 
 
 app.listen(3001, () => {
@@ -164,6 +222,49 @@ app.listen(3001, () => {
 });
 
 
+async function getSecret() {
+  try {
+    const res = await axios.post(
+      `${AIRTEL.BASE_URL}/v2/${AIRTEL.URL_CODE}/renew-secret`,
+      new URLSearchParams({
+        operationAccountCode: AIRTEL.ACCOUNT_CODE,
+        password: AIRTEL.PASSWORD,
+      }),
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      }
+    )
+
+    SECRET_KEY = res.data.secret
+    console.log("✅ NEW SECRET:", SECRET_KEY)
+
+  } catch (err) {
+    console.error("❌ SECRET ERROR:", err.response?.data || err.message)
+  }
+}
+
+
+app.post("/callback/airtel", async (req, res) => {
+  const data = req.body
+
+  console.log("📩 CALLBACK:", data)
+
+  const { merchantReferenceId, status } = data
+
+  // 🔄 mise à jour paiement
+  await supabase
+    .from("payments")
+    .update({ status })
+    .eq("reference", merchantReferenceId)
+
+  // ✅ réponse obligatoire
+  res.status(200).json({
+    transactionId: data.transactionId,
+    responseCode: data.code,
+  })
+})
 
 
 
